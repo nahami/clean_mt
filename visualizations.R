@@ -1,4 +1,7 @@
-# visualizations
+# Visualizations
+# 
+# 
+# 
 rm(list = ls())
 graphics.off()
 
@@ -7,6 +10,7 @@ library(ggplot2)
 library(reshape2)
 library(gridExtra)
 library(grid)
+library(ggmap)
 
 # functions:
 subsetByTime <- function(df,start_date,end_date){df[df$datetime >= start_date & df$datetime <= end_date,]}
@@ -44,92 +48,140 @@ grid_arrange_shared_legend <- function(pl, ncol = length(pl), nrow = 1, position
 # grid_arrange_shared_legend(pl = plot_list, ncol = 2, nrow = 2, position = "bottom") 
 
 
-
-
-
-
-
 # load data
 # load('plotdata/aireasdata.RData')
+ancdat <- read.csv("data/rotterdam/input/rdam_anc", header = TRUE)
+
 load('data/rotterdam/input/finput.Rdata')
-feat_inp <-  feat_inp[,c(1,2,3,5,4,6,7,8,9,10,11,12)]
-names(feat_inp) <- c("datetime",
-                     "id",
+feat_inp <- feat_inp[,c(1,2,3,5,4,6,7,8,9,10,11,12,13,14,15)]
+feat_inp <- merge(feat_inp,ancdat[,c(1,2,3,4)], by = "id", all = F)
+names(feat_inp) <- c("id",
+                     "datetime",
                      "urban temperature",
                      "rural temperature",                     
                      "temperature difference",
                      "wind speed",
                      "wind direction",
                      "pressure",
+                     "cloud cover",
+                     "daily solar radiation",
+                     "hourly solar radiation",
                      "sky view factor",
                      "fraction impervious",
                      "solar heading",
-                     "solar elevation")
+                     "solar elevation",
+                     "name",
+                     "lat",
+                     "lon")
 ids <- unique(feat_inp$id)
 
 # variables:                      IDs:
-# 1. "datetime",                  1. "896336001"
-# 2. "id",                        2. "914096001"
+# 1. "id"                         1. "896336001"
+# 2. "datetime",                  2. "914096001"
 # 3. "urban temperature",         3. "1000000606"
-# 4. "temperature difference",    4. "1000001176"    
-# 5. "rural temperature",         5. "944506001"
+# 4. "rural temperature",         4. "1000001176"    
+# 5. "temperature difference",    5. "944506001"
 # 6. "wind speed",                6. "43077310"
 # 7. "wind direction",            7. "1000000888" 
 # 8. "pressure",                  8. "Bolnes" 
-# 9. "sky view factor",           9. "SpaansePolder"
-# 10. "fraction impervious",      10. "Capelle" 
-# 11. "solar heading",            11. "Oost"
-# 12. "solar elevation"           12. "Ridderkerk" 
-#                                 13. "Ommoord" 
-#                                 14. "Rijnhaven" 
-#                                 15. "Delfshaven"
+# 9. "cloud cover",               9. "SpaansePolder"
+# 10. "daily solar radiation",    10. "Capelle" 
+# 11. "hourly solar radiation",   11. "Oost"
+# 12. "sky view factor",          12. "Ridderkerk" 
+# 13. "fraction impervious",      13. "Ommoord" 
+# 14. "solar heading",            14. "Rijnhaven" 
+# 15. "solar elevation"           15. "Delfshaven"
+
+
+
 
 # select variables
-temperature <- c(1,3,4,5)
+temperature <- c(2,3,4,5,16,17,18)
 # select IDs:
 # id = 8
 plot_list <- list()
+map_list <- list()
 j <- 1
 for (i in c(1,7,12,14)){
   id = i
+  # i =1
   print(i)
 # select date
-start_date <- as.POSIXct("2017-05-27 00:00:00")
-end_date <- as.POSIXct("2017-05-30 00:00:00")
-
-data_plot <- feat_inp
-
-# subset by id
-data_plot <- subset(data_plot, id == ids[i])
-# subset by time
-data_plot <- subsetByTime(data_plot, start_date, end_date)
-# subset by variables
-data_plot <- data_plot[,temperature]
-
-data_plot$datetime <- as.POSIXct(data_plot$datetime)
-
-#### making plots
-theme_update(plot.title = element_text(hjust = 0.5))
-
-temp_obs <- ggplot(melt(data_plot, id = "datetime")) + 
-  geom_step(aes(x=datetime, y = value, colour=variable), na.rm = T) +
-  scale_colour_manual(values=c("orange","blue","green")) +
-  labs(title = paste0("location id: ",ids[id]),
-       x = "Time",
-       y = "Temperature (Celsius)") +
-  ylim(-5,34) +
-  theme(legend.title=element_blank())#+
-  # theme(axis.text=element_text(size=12),
-  #       axis.title=element_text(size=14,face="bold"))
+  start_date <- as.POSIXct("2017-05-27 00:00:00")
+  end_date <- as.POSIXct("2017-05-30 00:00:00")
   
-plot_list[[j]] <- temp_obs
-j <- j+1
-ggsave(paste0("data/rotterdam/data_plots/",id,"_temp_obs.png"),width = 4,height = 6)
+  data_plot <- feat_inp
+  
+  # subset by id
+  data_plot <- subset(data_plot, id == ids[i])
+  lat <- data_plot$lat[1]
+  lon <- data_plot$lon[1]
+  print(c(lat,lon))
+
+  # subset by time
+  data_plot <- subsetByTime(data_plot, start_date, end_date)
+  # subset by variables
+  data_plot <- data_plot[,temperature]
+  
+  data_plot$datetime <- as.POSIXct(data_plot$datetime)
+  
+  #### making plots
+  theme_update(plot.title = element_text(hjust = 0.5))
+  
+  temp_obs <- ggplot(melt(data_plot[,1:4], id = "datetime")) + 
+    geom_step(aes(x=datetime, y = value, colour=variable), na.rm = T) +
+    scale_colour_manual(values=c("orange","blue","green")) +
+    labs(title = paste0("location id: ",ids[id]),
+         x = "Time",
+         y = "Temperature (Celsius)") +
+    ylim(-5,34) +
+    theme(legend.title=element_blank())
+  plot_list[[j]] <- temp_obs
+  
+  al1 <- get_map(location = c(lon,lat), zoom = 17, maptype = 'satellite')
+  temp_map <- ggmap(al1)
+  map_list[[j]] <- temp_map
+  
+  #add count
+  j <- j+1
+  
+
+
+  ggsave(paste0("data/rotterdam/data_plots/",id,"_temp_obs.png"),width = 6,height = 4)
+  ggsave(paste0("data/rotterdam/data_plots/",id,"sat_temp_map.png"),width = 6,height = 4)
 }
 
+nwpl_list <- c(rbind(plot_list,map_list))
 
 
-#### (fancy) histograms 
+grid_arrange_shared_legend(pl = plot_list,ncol = 2,nrow = 2)
+
+## wind direction ##
+# http://personal.colby.edu/personal/m/mgimond/RIntro/06_Case_study_ocean_data.html
+library(dplyr)
+
+brks <- c(0,  45,  90, 135, 180, 225, 270, 315, 360)
+lbs  <- c("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+
+feat_inp <- na.omit(feat_inp)
+wind <- feat_inp %>%
+  filter( is.na(wd) == FALSE, is.na(temp_aws) == FALSE) %>%  
+  mutate(WDIR2 = (wd + 360/8/2)%%360) %>%
+  mutate( dirbin = cut(WDIR2, breaks=brks, labels=lbs) )  %>%
+  group_by(dirbin) %>%
+  summarise( dircnt =  n(), meantmp = mean(temp_aws) )
+
+windd <-ggplot(aes(x=dirbin, y=dircnt, fill=meantmp), data=wind) + 
+  geom_bar(width=1, stat = "identity") + 
+  scale_fill_distiller(palette="Reds",direction = 1) + coord_polar(start = -(22.5 * pi/180))+
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) + 
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold")) + 
+  ylab("count") + 
+  ggtitle("Windrose Rdam Airport and \nMean Temperature")
+windd
+
+ggsave("windd.png")
 
 
 
