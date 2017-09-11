@@ -75,9 +75,9 @@ feat_inp <- na.omit(feat_inp)
 
 
 
-feat_inp_p <- preProcess(feat_inp[,-(1:5)], method = c("YeoJohnson","center","scale"))
-feat_inp_pp <- predict(feat_inp_p,feat_inp[,6:15])
-feat_inp[,6:15] <- feat_inp_pp
+feat_inp_p <- preProcess(feat_inp[,-(1:4)], method = c("YeoJohnson","center","scale"))
+feat_inp_pp <- predict(feat_inp_p,feat_inp[,5:15])
+feat_inp[,5:15] <- feat_inp_pp
 
 
 #### Split into train and test set #####
@@ -87,7 +87,7 @@ randomizedRowIDs <- sample(1:length(feat_inp[,1]), length(feat_inp[,1]),
                            replace = FALSE)
 
 # Create train and test row IDs
-train_fr <- 0.2
+train_fr <- 0.5
 cut_off <- floor(train_fr * length(feat_inp[,1]))
 trainRowIDs <- randomizedRowIDs[1:cut_off]
 testRowIDs <- randomizedRowIDs[(cut_off + 1):length(feat_inp[,1])]
@@ -132,11 +132,10 @@ bst <- xgboost(objective = "reg:linear",
 #                 data = matrixTrainxy,
 #                 # preProcess = c("center","scale","YeoJohnson"),
 #                 method = "rf")
- 
 
 lm_fit <- train(V1 ~ .,
                data = matrixTrainxy,
-               preProcess = c("center","scale","YeoJohnson"),
+               # preProcess = c("center","scale","YeoJohnson"),
                method = 'lm')
 
 
@@ -146,8 +145,52 @@ bstmse <- rmse(matrixTestY,matrixTestX,bst)
 
 linrsq <-  rsquared(matrixTestY,matrixTestX,lm_fit)
 bstrsq <-  rsquared(matrixTestY,matrixTestX,bst)
-
 print(c(linmse,bstmse,linrsq,bstrsq))
 
+
+
+
+
+
+
+
+
 xgb.importance(model = bst)
-lm_fit
+summary(lm_fit)
+
+output_tbl <- feat_inp
+load(file = "data/rotterdam/input/finput.Rdata")
+feat_inp <- na.omit(feat_inp)
+output_tbl$temp_aws <-  feat_inp$temp_aws
+output_tbl$y_model <- predict(object = lm_fit,newdata = output_tbl[,5:15])
+output_tbl$residuals <- output_tbl$temp - output_tbl$y_model
+output_tbl$up_bnd <- output_tbl$y_model+linmse 
+output_tbl$lo_bnd <- output_tbl$y_model-linmse
+
+ancdat <- read.csv("data/rotterdam/input/rdam_anc", header = TRUE)
+output_tbl <- merge(output_tbl,ancdat[,c(1,2)], by = "id", all = F)
+
+output_tbl <- output_tbl[,c(2,3,5,16,17,18,19)]
+output_tbl$datetime <-  as.POSIXct(output_tbl$datetime)
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(reshape2)
+temp_obs <- ggplot(melt(output_tbl, id = "datetime")) + 
+  geom_step(aes(x=datetime, y = value, colour=variable), na.rm = T) +
+  # scale_colour_manual(values=c("orange","blue","green")) +
+  labs(#title = paste0("location id: ",ids[id]),
+       x = "Time",
+       y = "Temperature (Celsius)") +
+  theme(legend.title=element_blank())
+

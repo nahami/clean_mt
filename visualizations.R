@@ -42,16 +42,13 @@ grid_arrange_shared_legend <- function(pl, ncol = length(pl), nrow = 1, position
   
   # return gtable invisibly
   invisible(combined)
-  
 }
 
 # grid_arrange_shared_legend(pl = plot_list, ncol = 2, nrow = 2, position = "bottom") 
 
 
 # load data
-# load('plotdata/aireasdata.RData')
 ancdat <- read.csv("data/rotterdam/input/rdam_anc", header = TRUE)
-
 load('data/rotterdam/input/finput.Rdata')
 feat_inp <- feat_inp[,c(1,2,3,5,4,6,7,8,9,10,11,12,13,14,15)]
 feat_inp <- merge(feat_inp,ancdat[,c(1,2,3,4)], by = "id", all = F)
